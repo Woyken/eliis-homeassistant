@@ -1,0 +1,247 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Eliis",
+        "description": "This integration uses the unofficial Eliis mobile API. It needs your Eliis account visibility, may poll personal data and will include the session cookie in Home Assistant backups. Setup is read-only apart from login.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "two_factor": {
+        "title": "Two-factor authentication",
+        "description": "Enter the code required by Eliis to finish signing in.",
+        "data": {
+          "code": "Code"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Eliis",
+        "description": "The Eliis session is no longer valid. Sign in again to keep the existing account and selections.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "reauth_2fa": {
+        "title": "Reconnect with two-factor",
+        "description": "Enter the code required by Eliis to finish signing in.",
+        "data": {
+          "code": "Code"
+        }
+      },
+      "reconfigure": {
+        "title": "Update Eliis account",
+        "description": "Sign in again to verify the account and refresh visible institutions and children. Existing selections are kept only while still visible.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "reconfigure_2fa": {
+        "title": "Update Eliis account",
+        "description": "Enter the code required by Eliis to finish signing in.",
+        "data": {
+          "code": "Code"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Eliis rejected the username, password or code.",
+      "cannot_connect": "Could not reach the Eliis service.",
+      "rate_limited": "Eliis asked this account to slow down. Try again later.",
+      "permission_denied": "This account is not allowed to read the required data.",
+      "two_factor_unsupported": "Eliis requested a two-factor challenge that this integration cannot complete safely.",
+      "invalid_response": "Eliis returned an unsupported response.",
+      "no_institutions": "No institution was visible to this account.",
+      "unknown": "Unexpected error while talking to Eliis."
+    },
+    "abort": {
+      "already_configured": "This Eliis account is already configured.",
+      "wrong_account": "The signed-in account does not match this entry.",
+      "reauth_failed": "Could not start reauthentication for this entry.",
+      "reconfigure_failed": "Could not start reconfiguration for this entry.",
+      "two_factor_expired": "The two-factor challenge expired. Start again."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Eliis options",
+        "description": "Choose which optional modules are polled and how often. The institution events calendar is experimental and omits recurring or ambiguous events.",
+        "data": {
+          "scan_interval": "Polling interval (minutes)",
+          "enable_menu": "Enable menus",
+          "enable_feed": "Enable diary date and count summaries",
+          "enable_notifications": "Enable unseen notification count",
+          "enable_events": "Enable experimental institution calendar",
+          "alias_1": "Child 1 display name",
+          "alias_2": "Child 2 display name",
+          "alias_3": "Child 3 display name",
+          "alias_4": "Child 4 display name",
+          "alias_5": "Child 5 display name",
+          "alias_6": "Child 6 display name",
+          "alias_7": "Child 7 display name",
+          "alias_8": "Child 8 display name"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "unseen_notifications": {
+        "name": "Unseen notifications"
+      },
+      "menu_today": {
+        "name": "Today's menu",
+        "state": {
+          "content_available": "Content available",
+          "no_content_returned": "No content returned"
+        }
+      },
+      "menu_tomorrow": {
+        "name": "Tomorrow's menu",
+        "state": {
+          "content_available": "Content available",
+          "no_content_returned": "No content returned"
+        }
+      },
+      "calendar_status_today": {
+        "name": "Calendar status today"
+      },
+      "latest_diary_date": {
+        "name": "Latest returned diary date"
+      },
+      "diary_records": {
+        "name": "Diary records on latest returned date"
+      },
+      "last_successful_sync": {
+        "name": "Last successful sync"
+      },
+      "omitted_events": {
+        "name": "Omitted events"
+      }
+    },
+    "calendar": {
+      "institution_events": {
+        "name": "Institution events"
+      }
+    }
+  },
+  "services": {
+    "get_menu": {
+      "name": "Get menu",
+      "description": "Return sanitized weekly-menu days for an Eliis institution device.",
+      "fields": {
+        "device_id": {
+          "name": "Institution device",
+          "description": "The Eliis institution device to query."
+        },
+        "start_date": {
+          "name": "Start date",
+          "description": "First source date to return. Defaults to today."
+        },
+        "end_date": {
+          "name": "End date",
+          "description": "Last source date to return. Defaults to the start date."
+        }
+      }
+    },
+    "get_feed_summary": {
+      "name": "Get feed summary",
+      "description": "Return bounded guardian-feed date and count summaries for a child device.",
+      "fields": {
+        "device_id": {
+          "name": "Child device",
+          "description": "The Eliis child device to query."
+        },
+        "pages": {
+          "name": "Pages",
+          "description": "Number of bounded feed pages to walk (1-3)."
+        }
+      }
+    },
+    "get_status_history": {
+      "name": "Get status history",
+      "description": "Return status-log records for one explicit date.",
+      "fields": {
+        "device_id": {
+          "name": "Child device",
+          "description": "The Eliis child device to query."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Source date to query."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Refresh",
+      "description": "Request a coalesced refresh for one account or module.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Account",
+          "description": "The Eliis account to refresh."
+        },
+        "module": {
+          "name": "Module",
+          "description": "Optional module to refresh instead of the whole account."
+        }
+      }
+    }
+  },
+  "issues": {
+    "partial_calendar": {
+      "title": "Eliis institution calendar is incomplete",
+      "description": "{count} event record(s) could not be represented safely and were omitted. Recurring, ambiguous or unsupported intervals are not shown. Do not rely on this calendar for complete scheduling or reminders; use the Eliis app for authoritative information."
+    }
+  },
+  "exceptions": {
+    "auth_failed": {
+      "message": "Eliis rejected the stored session. Start reauthentication."
+    },
+    "calendar_unavailable": {
+      "message": "Eliis events are temporarily unavailable for this account."
+    },
+    "cannot_fetch_events": {
+      "message": "Could not fetch Eliis institution events."
+    },
+    "cannot_fetch_feed": {
+      "message": "Could not fetch the Eliis guardian feed."
+    },
+    "cannot_fetch_menu": {
+      "message": "Could not fetch the Eliis weekly menu."
+    },
+    "cannot_fetch_status": {
+      "message": "Could not fetch Eliis status-log records."
+    },
+    "child_device_required": {
+      "message": "This action requires an Eliis child device."
+    },
+    "device_not_found": {
+      "message": "The selected device does not belong to a loaded Eliis account."
+    },
+    "entry_not_found": {
+      "message": "The selected Eliis account was not found."
+    },
+    "entry_not_loaded": {
+      "message": "The selected Eliis account is not loaded."
+    },
+    "institution_device_required": {
+      "message": "This action requires an Eliis institution device."
+    },
+    "invalid_date_range": {
+      "message": "The start date must not be after the end date."
+    },
+    "module_not_enabled": {
+      "message": "The selected Eliis module is not enabled."
+    },
+    "permission_denied": {
+      "message": "Eliis denied access to this resource."
+    },
+    "range_too_large": {
+      "message": "The requested range is too large. Limit it to at most {max_days} days."
+    }
+  }
+}

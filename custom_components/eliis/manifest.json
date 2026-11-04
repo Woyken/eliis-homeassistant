@@ -1,0 +1,12 @@
+{
+  "domain": "eliis",
+  "name": "Eliis",
+  "codeowners": ["@Woyken"],
+  "config_flow": true,
+  "documentation": "https://github.com/Woyken/eliis-homeassistant",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/Woyken/eliis-homeassistant/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
