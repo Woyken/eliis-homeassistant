@@ -42,8 +42,16 @@ async def test_setup_creates_account_and_child_entities(hass) -> None:
     child_device = get_device(
         hass, entry, (DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}")
     )
+    institution_device = get_device(
+        hass, entry, (DOMAIN, f"institution:{ACCOUNT_ID}:{opaque_id('1001')}")
+    )
+    account_device = get_device(hass, entry, (DOMAIN, f"account:{ACCOUNT_ID}"))
     assert child_device is not None
     assert child_device.name == "Test Child"
+    assert institution_device is not None
+    assert account_device is not None
+    assert child_device.via_device_id == institution_device.id
+    assert institution_device.via_device_id == account_device.id
 
 
 @pytest.mark.asyncio
