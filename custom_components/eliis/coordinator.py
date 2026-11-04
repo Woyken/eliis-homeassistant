@@ -110,7 +110,12 @@ class AccountCoordinator(BaseEliisCoordinator[AccountData]):
     """Poll account-level summaries."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, client: EliisClient
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        client: EliisClient,
+        *,
+        enable_notifications: bool = True,
     ) -> None:
         """Initialize the account coordinator."""
         super().__init__(
@@ -120,9 +125,17 @@ class AccountCoordinator(BaseEliisCoordinator[AccountData]):
             update_interval=DEFAULT_SCAN_INTERVAL,
             client=client,
         )
+        self.enable_notifications = enable_notifications
 
     async def _async_update_data(self) -> AccountData:
-        """Fetch the unseen notification count."""
+        """Fetch the unseen notification count when enabled."""
+        if not self.enable_notifications:
+            return AccountData(
+                notification_count=None,
+                notifications_ok=False,
+                fetched_at=utcnow(),
+            )
+
         try:
             payload = await self.client.async_get_unseen_notification_count()
         except EliisError as err:
@@ -224,6 +237,8 @@ class ChildCoordinator(BaseEliisCoordinator[ChildData]):
         entry: ConfigEntry,
         client: EliisClient,
         child: Child,
+        *,
+        enable_feed: bool = True,
     ) -> None:
         """Initialize the child coordinator."""
         super().__init__(
@@ -234,19 +249,22 @@ class ChildCoordinator(BaseEliisCoordinator[ChildData]):
             client=client,
         )
         self.child = child
+        self.enable_feed = enable_feed
         if child.institution_id is None:
             raise ValueError("Child coordinator requires a verified institution")
 
     async def _async_update_data(self) -> ChildData:
-        """Fetch calendar status and the first feed page."""
+        """Fetch calendar status and, when enabled, the first feed page."""
         institution_id = self.child.institution_id
         assert institution_id is not None
-        results = await asyncio.gather(
-            self.client.async_get_child_calendar(institution_id, self.child.id),
-            self.client.async_get_guardian_feed(institution_id, self.child.id),
-            return_exceptions=True,
-        )
-        calendar_result, feed_result = results
+        requests = [self.client.async_get_child_calendar(institution_id, self.child.id)]
+        if self.enable_feed:
+            requests.append(
+                self.client.async_get_guardian_feed(institution_id, self.child.id)
+            )
+        results = await asyncio.gather(*requests, return_exceptions=True)
+        calendar_result = results[0]
+        feed_result = results[1] if self.enable_feed else None
 
         for result in results:
             if isinstance(result, EliisAuthError):
@@ -271,7 +289,7 @@ class ChildCoordinator(BaseEliisCoordinator[ChildData]):
             except EliisSchemaError:
                 data.status_ok = False
 
-        if not isinstance(feed_result, BaseException):
+        if feed_result is not None and not isinstance(feed_result, BaseException):
             try:
                 page = parse_feed(feed_result, fetched_at=data.fetched_at)
             except EliisSchemaError:

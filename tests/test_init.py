@@ -9,10 +9,9 @@ from custom_components.eliis.const import DOMAIN
 from custom_components.eliis.entity import child_name
 from custom_components.eliis.util import opaque_id
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.helpers import device_registry as dr
 
 from .fakes import FakeEliisClient
-from .helpers import ACCOUNT_ID, make_entry
+from .helpers import ACCOUNT_ID, get_device, make_entry
 
 
 @pytest.fixture(autouse=True)
@@ -40,9 +39,8 @@ async def test_setup_creates_account_and_child_entities(hass) -> None:
     assert "sensor.test_child_calendar_status_today" in entity_ids
     assert "sensor.test_child_diary_records_on_latest_returned_date" in entity_ids
 
-    registry = dr.async_get(hass)
-    child_device = registry.async_get_device(
-        identifiers={(DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}")}
+    child_device = get_device(
+        hass, entry, (DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}")
     )
     assert child_device is not None
     assert child_device.name == "Test Child"
@@ -73,6 +71,24 @@ async def test_unload_entry_closes_client_and_removes_entities(hass) -> None:
 
 
 @pytest.mark.asyncio
+async def test_disabled_modules_are_not_polled(hass) -> None:
+    """Disabled modules create no entities and make no requests."""
+    entry = make_entry(options={"enable_notifications": False, "enable_feed": False})
+    entry.add_to_hass(hass)
+
+    with patch("custom_components.eliis.runtime.EliisClient", FakeEliisClient):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_ids = set(hass.states.async_entity_ids("sensor"))
+    assert "sensor.eliis_unseen_notifications" not in entity_ids
+    assert "sensor.test_child_latest_returned_diary_date" not in entity_ids
+    assert "sensor.test_child_diary_records_on_latest_returned_date" not in entity_ids
+    assert "sensor.test_child_calendar_status_today" in entity_ids
+    assert FakeEliisClient.feed_requests == []
+
+
+@pytest.mark.asyncio
 async def test_events_calendar_is_opt_in(hass) -> None:
     """The experimental calendar only loads when enabled."""
     entry = make_entry(options={"enable_events": True})
@@ -97,9 +113,8 @@ async def test_child_alias_is_applied(hass) -> None:
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-    registry = dr.async_get(hass)
-    child_device = registry.async_get_device(
-        identifiers={(DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}")}
+    child_device = get_device(
+        hass, entry, (DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}")
     )
     assert child_device is not None
     assert child_device.name == "Kiddo"

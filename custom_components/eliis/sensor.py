@@ -41,7 +41,8 @@ async def async_setup_entry(
     runtime: EliisRuntimeData = entry.runtime_data
     entities: list[SensorEntity] = []
 
-    entities.append(UnseenNotificationsSensor(runtime.account_coordinator, runtime))
+    if runtime.enable_notifications:
+        entities.append(UnseenNotificationsSensor(runtime.account_coordinator, runtime))
     entities.append(
         ModuleLastSyncSensor(
             runtime.account_coordinator,

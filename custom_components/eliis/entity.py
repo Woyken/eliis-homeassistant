@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -32,7 +34,6 @@ def institution_device_info(runtime: Any, institution: Institution) -> DeviceInf
         name=institution.name or "Eliis institution",
         manufacturer="Eliis",
         entry_type=DeviceEntryType.SERVICE,
-        via_device=(DOMAIN, f"account:{runtime.account_id}"),
     )
 
 
@@ -48,18 +49,40 @@ def child_name(entry: ConfigEntry, child: Child) -> str:
 
 def child_device_info(runtime: Any, entry: ConfigEntry, child: Child) -> DeviceInfo:
     """Return the logical child device."""
-    institution_identifier = (
-        f"institution:{runtime.account_id}:{opaque_id(child.institution_id)}"
-        if child.institution_id
-        else f"account:{runtime.account_id}"
-    )
     return DeviceInfo(
         identifiers={(DOMAIN, f"child:{runtime.account_id}:{opaque_id(child.id)}")},
         name=child_name(entry, child),
         manufacturer="Eliis",
         entry_type=DeviceEntryType.SERVICE,
-        via_device=(DOMAIN, institution_identifier),
     )
+
+
+def async_ensure_devices(hass: HomeAssistant, entry: ConfigEntry, runtime: Any) -> None:
+    """Create the account device tree and link each child to its parent."""
+    registry = dr.async_get(hass)
+    account = registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        **account_device_info(runtime),
+    )
+
+    institutions: dict[str, Any] = {}
+    for institution in runtime.institutions:
+        device = registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            **institution_device_info(runtime, institution),
+        )
+        if device.via_device_id != account.id:
+            registry.async_update_device(device.id, via_device_id=account.id)
+        institutions[institution.id] = device
+
+    for child in runtime.children:
+        parent = institutions.get(child.institution_id) or account
+        device = registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            **child_device_info(runtime, entry, child),
+        )
+        if device.via_device_id != parent.id:
+            registry.async_update_device(device.id, via_device_id=parent.id)
 
 
 class EliisEntity(CoordinatorEntity[Any]):

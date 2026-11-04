@@ -126,8 +126,8 @@ ruff check custom_components tests
 ruff format --check custom_components tests
 ```
 
-The test suite uses fictional fixtures and a local HTTP server. CI never talks
-to Eliis.
+The test suite uses fictional fixtures and an in-memory transport, so CI never
+talks to Eliis.
 
 ## License
 

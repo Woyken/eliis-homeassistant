@@ -462,7 +462,9 @@ async def async_refresh(call: ServiceCall) -> None:
     elif module in (MODULE_FEED, MODULE_STATUS):
         coordinators = list(runtime.child_coordinators.values())
     elif module == MODULE_NOTIFICATIONS:
-        coordinators = [runtime.account_coordinator]
+        coordinators = (
+            [runtime.account_coordinator] if runtime.enable_notifications else []
+        )
     elif module == MODULE_EVENTS:
         coordinators = list(runtime.events_coordinators.values())
     else:

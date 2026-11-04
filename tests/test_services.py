@@ -15,11 +15,10 @@ from homeassistant.exceptions import (
     ServiceValidationError,
     Unauthorized,
 )
-from homeassistant.helpers import device_registry as dr
 from homeassistant.util import dt as dt_util
 
 from .fakes import FakeEliisClient
-from .helpers import ACCOUNT_ID, make_entry
+from .helpers import ACCOUNT_ID, get_device, make_entry
 
 
 @pytest.fixture(autouse=True)
@@ -37,18 +36,12 @@ async def _setup(hass):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-    registry = dr.async_get(hass)
-    institution = registry.async_get_device(
-        identifiers={
-            (
-                DOMAIN,
-                f"institution:{ACCOUNT_ID}:{opaque_id('1001')}",
-            )
-        }
+    institution = get_device(
+        hass,
+        entry,
+        (DOMAIN, f"institution:{ACCOUNT_ID}:{opaque_id('1001')}"),
     )
-    child = registry.async_get_device(
-        identifiers={(DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}")}
-    )
+    child = get_device(hass, entry, (DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}"))
     assert institution is not None
     assert child is not None
     return entry, institution.id, child.id

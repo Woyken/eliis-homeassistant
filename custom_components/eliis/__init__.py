@@ -24,6 +24,7 @@ from .coordinator import (
     EventsCoordinator,
     MenuCoordinator,
 )
+from .entity import async_ensure_devices
 from .runtime import (
     EliisRuntimeData,
     build_client,
@@ -68,14 +69,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     enable_notifications = _option(entry, CONF_ENABLE_NOTIFICATIONS, True)
     enable_events = _option(entry, CONF_ENABLE_EVENTS, False)
 
-    account_coordinator = AccountCoordinator(hass, entry, client)
+    account_coordinator = AccountCoordinator(
+        hass,
+        entry,
+        client,
+        enable_notifications=enable_notifications,
+    )
     menu_coordinators = {
         institution.id: MenuCoordinator(hass, entry, client, institution)
         for institution in institutions
         if enable_menu
     }
     child_coordinators = {
-        child.id: ChildCoordinator(hass, entry, client, child) for child in children
+        child.id: ChildCoordinator(hass, entry, client, child, enable_feed=enable_feed)
+        for child in children
     }
     events_coordinators = {
         institution.id: EventsCoordinator(hass, entry, client, institution)
@@ -110,6 +117,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     platforms = list(PLATFORMS)
     if enable_events:
         platforms.append(Platform.CALENDAR)
+    async_ensure_devices(hass, entry, runtime)
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
 
     from homeassistant.core import callback
