@@ -120,7 +120,7 @@ def _default_options() -> dict[str, Any]:
 class EliisConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle Eliis account setup and reauthentication."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         """Initialize the flow."""
@@ -142,10 +142,28 @@ class EliisConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._client = EliisClient()
         return await self._client.async_login(username, password)
 
-    async def _async_discover(self) -> Discovery:
+    async def _async_discover(
+        self,
+        expected_account_id: str | None = None,
+        *,
+        pair: bool = True,
+    ) -> Discovery:
         """Discover the account and verify child/institution pairs."""
         assert self._client is not None
-        discovery = parse_init(await self._client.async_get_init())
+        payload = await self._client.async_get_init()
+        discovery = parse_init(payload, fallback_seed=self._username)
+        if (
+            expected_account_id is not None
+            and discovery.account_id != expected_account_id
+        ):
+            # Entries created before the login-name fallback used only the
+            # visible institution set. Keep accepting that identity during
+            # reauth and reconfigure.
+            legacy = parse_init(payload)
+            if legacy.account_id == expected_account_id:
+                discovery = legacy
+        if not pair:
+            return discovery
         paired = await pair_children(self._client, discovery)
         return Discovery(
             institutions=discovery.institutions,
@@ -299,7 +317,7 @@ class EliisConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         assert entry is not None
         assert self._client is not None
         try:
-            discovery = parse_init(await self._client.async_get_init())
+            discovery = await self._async_discover(entry.unique_id, pair=False)
         except EliisError as err:
             await self._async_close_client()
             return self.async_show_form(
@@ -380,7 +398,7 @@ class EliisConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         assert entry is not None
         assert self._client is not None
         try:
-            discovery = await self._async_discover()
+            discovery = await self._async_discover(entry.unique_id)
         except EliisError as err:
             await self._async_close_client()
             return self.async_show_form(

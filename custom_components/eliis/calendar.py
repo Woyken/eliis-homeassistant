@@ -26,7 +26,12 @@ from homeassistant.util import dt as dt_util
 from .api.models import EventRecord, Institution
 from .const import DOMAIN, PARTIAL_CALENDAR_ISSUE_ID
 from .coordinator import EventsCoordinator
-from .entity import EliisEntity, institution_device_info
+from .entity import (
+    EliisEntity,
+    institution_device_info,
+    institution_scope,
+    is_shared_owner,
+)
 from .runtime import EliisRuntimeData
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,7 +52,8 @@ async def async_setup_entry(
             device_info=institution_device_info(runtime, institution),
         )
         for institution in runtime.institutions
-        if (coordinator := runtime.events_coordinators.get(institution.id)) is not None
+        if is_shared_owner(hass, entry, institution_id=institution.id)
+        and (coordinator := runtime.events_coordinators.get(institution.id)) is not None
     ]
     async_add_entities(entities)
 
@@ -97,7 +103,7 @@ class EliisEventsCalendar(EliisEntity, CalendarEntity):
         """Initialize the calendar."""
         super().__init__(
             coordinator,
-            account_id=runtime.account_id,
+            unique_scope=institution_scope(institution.id),
             unique_key=f"events_{institution.id}",
             device_info=device_info,
         )

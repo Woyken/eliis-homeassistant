@@ -22,8 +22,12 @@ from .coordinator import (
 from .entity import (
     EliisEntity,
     account_device_info,
+    account_scope,
     child_device_info,
+    child_scope,
     institution_device_info,
+    institution_scope,
+    is_shared_owner,
 )
 from .runtime import EliisRuntimeData
 
@@ -46,7 +50,7 @@ async def async_setup_entry(
     entities.append(
         ModuleLastSyncSensor(
             runtime.account_coordinator,
-            runtime,
+            unique_scope=account_scope(runtime.account_id),
             unique_key="sync_account",
             device_info=account_device_info(runtime),
             translation_key="last_successful_sync",
@@ -54,6 +58,8 @@ async def async_setup_entry(
     )
 
     for institution in runtime.institutions:
+        if not is_shared_owner(hass, entry, institution_id=institution.id):
+            continue
         coordinator = runtime.menu_coordinators.get(institution.id)
         if coordinator is None:
             continue
@@ -78,7 +84,7 @@ async def async_setup_entry(
                 ),
                 ModuleLastSyncSensor(
                     coordinator,
-                    runtime,
+                    unique_scope=institution_scope(institution.id),
                     unique_key=f"sync_menu_{institution.id}",
                     device_info=device_info,
                     translation_key="last_successful_sync",
@@ -87,6 +93,8 @@ async def async_setup_entry(
         )
 
     for child in runtime.children:
+        if not is_shared_owner(hass, entry, child_id=child.id):
+            continue
         coordinator = runtime.child_coordinators.get(child.id)
         if coordinator is None:
             continue
@@ -101,7 +109,7 @@ async def async_setup_entry(
                 ),
                 ModuleLastSyncSensor(
                     coordinator,
-                    runtime,
+                    unique_scope=child_scope(child.id),
                     unique_key=f"sync_child_{child.id}",
                     device_info=device_info,
                     translation_key="last_successful_sync",
@@ -154,7 +162,7 @@ class UnseenNotificationsSensor(EliisEntity):
         """Initialize the sensor."""
         super().__init__(
             coordinator,
-            account_id=runtime.account_id,
+            unique_scope=account_scope(runtime.account_id),
             unique_key="unseen_notifications",
             device_info=account_device_info(runtime),
         )
@@ -190,7 +198,7 @@ class MenuSensor(EliisEntity):
         """Initialize the menu sensor."""
         super().__init__(
             coordinator,
-            account_id=runtime.account_id,
+            unique_scope=institution_scope(institution.id),
             unique_key=f"{translation_key}_{institution.id}",
             device_info=device_info,
         )
@@ -255,7 +263,7 @@ class ChildStatusSensor(EliisEntity):
         """Initialize the sensor."""
         super().__init__(
             coordinator,
-            account_id=runtime.account_id,
+            unique_scope=child_scope(child.id),
             unique_key=f"calendar_status_{child.id}",
             device_info=device_info,
         )
@@ -304,7 +312,7 @@ class LatestDiaryDateSensor(EliisEntity):
         """Initialize the sensor."""
         super().__init__(
             coordinator,
-            account_id=runtime.account_id,
+            unique_scope=child_scope(child.id),
             unique_key=f"latest_diary_date_{child.id}",
             device_info=device_info,
         )
@@ -335,7 +343,7 @@ class DiaryCountSensor(EliisEntity):
         """Initialize the sensor."""
         super().__init__(
             coordinator,
-            account_id=runtime.account_id,
+            unique_scope=child_scope(child.id),
             unique_key=f"diary_records_{child.id}",
             device_info=device_info,
         )
@@ -360,8 +368,8 @@ class ModuleLastSyncSensor(EliisEntity):
     def __init__(
         self,
         coordinator: Any,
-        runtime: EliisRuntimeData,
         *,
+        unique_scope: str,
         unique_key: str,
         device_info: Any,
         translation_key: str,
@@ -369,7 +377,7 @@ class ModuleLastSyncSensor(EliisEntity):
         """Initialize the diagnostic sensor."""
         super().__init__(
             coordinator,
-            account_id=runtime.account_id,
+            unique_scope=unique_scope,
             unique_key=unique_key,
             device_info=device_info,
         )
@@ -402,7 +410,7 @@ class OmittedEventsSensor(EliisEntity):
         """Initialize the diagnostic sensor."""
         super().__init__(
             coordinator,
-            account_id=runtime.account_id,
+            unique_scope=institution_scope(institution.id),
             unique_key=f"omitted_events_{institution.id}",
             device_info=device_info,
         )

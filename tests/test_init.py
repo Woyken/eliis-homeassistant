@@ -39,11 +39,9 @@ async def test_setup_creates_account_and_child_entities(hass) -> None:
     assert "sensor.test_child_calendar_status_today" in entity_ids
     assert "sensor.test_child_diary_records_on_latest_returned_date" in entity_ids
 
-    child_device = get_device(
-        hass, entry, (DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}")
-    )
+    child_device = get_device(hass, entry, (DOMAIN, f"child:{opaque_id('2002')}"))
     institution_device = get_device(
-        hass, entry, (DOMAIN, f"institution:{ACCOUNT_ID}:{opaque_id('1001')}")
+        hass, entry, (DOMAIN, f"institution:{opaque_id('1001')}")
     )
     account_device = get_device(hass, entry, (DOMAIN, f"account:{ACCOUNT_ID}"))
     assert child_device is not None
@@ -121,9 +119,7 @@ async def test_child_alias_is_applied(hass) -> None:
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-    child_device = get_device(
-        hass, entry, (DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}")
-    )
+    child_device = get_device(hass, entry, (DOMAIN, f"child:{opaque_id('2002')}"))
     assert child_device is not None
     assert child_device.name == "Kiddo"
 

@@ -18,7 +18,7 @@ from homeassistant.exceptions import (
 from homeassistant.util import dt as dt_util
 
 from .fakes import FakeEliisClient
-from .helpers import ACCOUNT_ID, get_device, make_entry
+from .helpers import get_device, make_entry
 
 
 @pytest.fixture(autouse=True)
@@ -39,9 +39,9 @@ async def _setup(hass):
     institution = get_device(
         hass,
         entry,
-        (DOMAIN, f"institution:{ACCOUNT_ID}:{opaque_id('1001')}"),
+        (DOMAIN, f"institution:{opaque_id('1001')}"),
     )
-    child = get_device(hass, entry, (DOMAIN, f"child:{ACCOUNT_ID}:{opaque_id('2002')}"))
+    child = get_device(hass, entry, (DOMAIN, f"child:{opaque_id('2002')}"))
     assert institution is not None
     assert child is not None
     return entry, institution.id, child.id

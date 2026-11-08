@@ -33,6 +33,16 @@ def test_parse_init_without_user_id_uses_institution_set() -> None:
     assert len(first.account_id) == 24
 
 
+def test_parse_init_fallback_seed_separates_accounts() -> None:
+    """Two accounts sharing institutions stay distinct without a user ID."""
+    payload = {key: value for key, value in INIT_PAYLOAD.items() if key != "user"}
+    first = parse_init(payload, fallback_seed="parent-a")
+    second = parse_init(payload, fallback_seed="parent-b")
+    assert first.account_id != second.account_id
+    assert first.account_id != parse_init(payload).account_id
+    assert parse_init(payload, fallback_seed="parent-a").account_id == first.account_id
+
+
 def test_parse_init_requires_an_institution() -> None:
     """An account with no visible institution cannot be set up."""
     with pytest.raises(EliisSchemaError):

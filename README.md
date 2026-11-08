@@ -66,6 +66,32 @@ The existing account, institutions and selections are kept. Reconfiguration
 verifies the signed-in account, refreshes visible institutions/children and
 keeps only selections that are still visible.
 
+### Multiple guardian accounts
+
+Add each Eliis account as its own config entry. If two accounts see the same
+institution or the same child, that real institution or child is represented
+once: one device and one entity set, without `_2` copies.
+
+```text
+Eliis (parent-a)          Eliis (parent-b)
+    │                         │
+    └── Kindergarten ─────────┘
+        ├── Child seen by both   (one device)
+        └── Child only by one    (one device)
+```
+
+The oldest account owns the shared device and its entities. Other accounts
+reuse that device and do not create duplicate entities. Account-level
+notifications remain separate for each account.
+
+- Unloading the owner makes shared entities unavailable until it is loaded
+  again. Read services on a shared device still use any other loaded account
+  that can see it.
+- Removing the owner hands the shared objects to the next account.
+- Child aliases are read from the owning account's options.
+- The shared device is listed under the owning account's integration entry.
+  Other accounts can still use it in automations, scripts and services.
+
 ## Services
 
 All services are admin-only and read-only. They return data with
@@ -79,7 +105,9 @@ All services are admin-only and read-only. They return data with
 | `eliis.refresh` | Config entry | Coalesced refresh of one module or the whole account. |
 
 Service responses include `coverage.complete` and `coverage.truncated` so callers
-can avoid treating a partial answer as complete.
+can avoid treating a partial answer as complete. A shared institution or child
+device is resolved to a loaded account that can see it, preferring the
+deterministic device owner.
 
 ## Experimental calendar limitations
 

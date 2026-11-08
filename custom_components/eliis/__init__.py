@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.event import async_track_time_change
 
 from .const import (
@@ -24,7 +25,7 @@ from .coordinator import (
     EventsCoordinator,
     MenuCoordinator,
 )
-from .entity import async_ensure_devices
+from .entity import async_ensure_devices, is_shared_owner
 from .runtime import (
     EliisRuntimeData,
     build_client,
@@ -34,6 +35,7 @@ from .runtime import (
     username_from_entry,
 )
 from .services import async_setup_services
+from .util import opaque_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -78,16 +80,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     menu_coordinators = {
         institution.id: MenuCoordinator(hass, entry, client, institution)
         for institution in institutions
-        if enable_menu
+        if enable_menu and is_shared_owner(hass, entry, institution_id=institution.id)
     }
     child_coordinators = {
         child.id: ChildCoordinator(hass, entry, client, child, enable_feed=enable_feed)
         for child in children
+        if is_shared_owner(hass, entry, child_id=child.id)
     }
     events_coordinators = {
         institution.id: EventsCoordinator(hass, entry, client, institution)
         for institution in institutions
-        if enable_events
+        if enable_events and is_shared_owner(hass, entry, institution_id=institution.id)
     }
 
     runtime = EliisRuntimeData(
@@ -176,15 +179,72 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Remove leftover integration issues."""
+    """Remove leftover integration issues and hand shared objects over."""
     from homeassistant.helpers import issue_registry as ir
 
     ir.async_delete_issue(hass, DOMAIN, f"partial_calendar_{entry.entry_id}")
 
+    runtime: EliisRuntimeData | None = getattr(entry, "runtime_data", None)
+    if runtime is not None:
+        institutions = {item.id for item in runtime.institutions}
+        children = {item.id for item in runtime.children}
+    else:
+        institutions = {item.id for item in institutions_from_entry(entry)}
+        children = {item.id for item in children_from_entry(entry)}
+    if not institutions and not children:
+        return
+
+    async def _async_reload_affected() -> None:
+        """Let another account create the shared devices and entities."""
+        for other in hass.config_entries.async_entries(DOMAIN):
+            if other.entry_id == entry.entry_id:
+                continue
+            if other.state is not ConfigEntryState.LOADED:
+                continue
+            other_runtime: EliisRuntimeData | None = getattr(
+                other, "runtime_data", None
+            )
+            if other_runtime is not None:
+                other_institutions = {item.id for item in other_runtime.institutions}
+                other_children = {item.id for item in other_runtime.children}
+            else:
+                other_institutions = {
+                    item.id for item in institutions_from_entry(other)
+                }
+                other_children = {item.id for item in children_from_entry(other)}
+            if (institutions & other_institutions) or (children & other_children):
+                await hass.config_entries.async_reload(other.entry_id)
+
+    hass.async_create_task(_async_reload_affected())
+
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate older config entry versions."""
-    return entry.version == 1
+    """Migrate account-scoped devices to shared account-independent ones."""
+    if entry.version > 2:
+        return False
+    if entry.version < 2:
+        account_id = entry.data.get(CONF_ACCOUNT_ID)
+        if isinstance(account_id, str) and account_id:
+            registry = dr.async_get(hass)
+            identifiers: list[tuple[str, str]] = [
+                (DOMAIN, f"institution:{account_id}:{opaque_id(item.id)}")
+                for item in institutions_from_entry(entry)
+            ]
+            identifiers.extend(
+                (DOMAIN, f"child:{account_id}:{opaque_id(item.id)}")
+                for item in children_from_entry(entry)
+            )
+            getter = getattr(registry, "async_get_device_by_identifier", None)
+            for identifier in identifiers:
+                device = (
+                    getter(identifier, entry.entry_id)
+                    if getter is not None
+                    else registry.async_get_device(identifiers={identifier})
+                )
+                if device is not None:
+                    registry.async_remove_device(device.id)
+        hass.config_entries.async_update_entry(entry, version=2)
+    return True
 
 
 __all__ = ["async_setup", "async_setup_entry", "async_unload_entry"]

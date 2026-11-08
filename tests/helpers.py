@@ -22,26 +22,37 @@ def get_device(hass, entry, identifier: tuple[str, str]):
     return registry.async_get_device(identifiers={identifier})
 
 
-def make_entry(options: dict[str, Any] | None = None) -> MockConfigEntry:
+def make_entry(
+    options: dict[str, Any] | None = None,
+    *,
+    account_id: str = ACCOUNT_ID,
+    username: str = "guardian",
+    institution_id: str = "1001",
+    institution_name: str = "Test Kindergarten",
+    children: list[dict[str, Any]] | None = None,
+    version: int = 2,
+) -> MockConfigEntry:
     """Build a loaded-config-entry stand-in with fictional selections."""
+    if children is None:
+        children = [
+            {
+                "id": "2002",
+                "name": "Test Child",
+                "institution_id": institution_id,
+            }
+        ]
     return MockConfigEntry(
         domain=DOMAIN,
-        version=1,
-        unique_id=ACCOUNT_ID,
-        title="Eliis (guardian)",
+        version=version,
+        unique_id=account_id,
+        title=f"Eliis ({username})",
         data={
-            "username": "guardian",
+            "username": username,
             "cookie": "eliis_csrf=session-cookie",
             "app_version": "2.69",
-            "account_id": ACCOUNT_ID,
-            "institutions": [{"id": "1001", "name": "Test Kindergarten"}],
-            "children": [
-                {
-                    "id": "2002",
-                    "name": "Test Child",
-                    "institution_id": "1001",
-                }
-            ],
+            "account_id": account_id,
+            "institutions": [{"id": institution_id, "name": institution_name}],
+            "children": children,
         },
         options=options or {},
     )

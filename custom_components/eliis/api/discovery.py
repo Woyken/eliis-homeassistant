@@ -15,12 +15,13 @@ if TYPE_CHECKING:
 _MAX_PROBES = 8
 
 
-def parse_init(payload: Any) -> Discovery:
+def parse_init(payload: Any, *, fallback_seed: str | None = None) -> Discovery:
     """Parse the account init payload into institutions and children.
 
     The account identifier prefers an explicit user identifier. When none is
-    evidenced, a hash of the visible institution set is used. Home names or
-    e-mail addresses are never used as identity.
+    evidenced, a hash of the fallback seed (the login name) and the visible
+    institution set is used. Home names or e-mail addresses are never stored;
+    only the opaque hash leaves this module.
     """
     if not isinstance(payload, dict):
         raise EliisSchemaError("Account discovery response was not an object")
@@ -76,16 +77,19 @@ def parse_init(payload: Any) -> Discovery:
     user_id = user_id or (
         scalar_id(user.get("user_id")) if isinstance(user, dict) else None
     )
+    if not institutions and not children:
+        raise EliisSchemaError("Account discovery returned no institutions")
     if user_id is not None:
         account_id = opaque_id("user", user_id)
+    elif fallback_seed is not None:
+        scope = [item.id for item in institutions] or [item.id for item in children]
+        account_id = opaque_id("account", fallback_seed, *sorted(scope))
     elif institutions:
         account_id = opaque_id(
             "institutions", *sorted(item.id for item in institutions)
         )
-    elif children:
-        account_id = opaque_id("children", *sorted(item.id for item in children))
     else:
-        raise EliisSchemaError("Account discovery returned no institutions")
+        account_id = opaque_id("children", *sorted(item.id for item in children))
 
     return Discovery(
         institutions=tuple(institutions),

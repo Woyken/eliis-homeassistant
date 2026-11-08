@@ -14,3 +14,8 @@ Initial read-only release.
   filtering and a partial-calendar repair issue.
 - Admin-only bounded read services and a coalesced refresh service.
 - Redacted diagnostics and opaque registry identifiers.
+- Shared institution and child devices across guardian accounts: one device and
+  one entity set per real object, with per-account notification entities.
+- Services resolve shared devices to an available loaded account.
+- Config-entry migration to remove old account-scoped institution/child devices
+  and avoid duplicate entities after upgrading.

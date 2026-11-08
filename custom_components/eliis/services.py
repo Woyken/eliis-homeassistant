@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
@@ -34,8 +34,9 @@ from .const import (
     MODULE_NOTIFICATIONS,
     MODULE_STATUS,
 )
+from .entity import child_identifier, institution_identifier
 from .runtime import EliisRuntimeData
-from .util import opaque_id, utcnow
+from .util import utcnow
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -137,13 +138,14 @@ def _loaded_runtime(hass: HomeAssistant, entry_id: str) -> EliisRuntimeData:
 def _device_target(
     hass: HomeAssistant, device_id: str
 ) -> tuple[EliisRuntimeData, Institution | Child]:
-    """Resolve a device to an account-scoped institution or child."""
+    """Resolve a shared institution or child to an available account."""
     device = dr.async_get(hass).async_get(device_id)
     if device is None:
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="device_not_found"
         )
 
+    matches: list[tuple[ConfigEntry, EliisRuntimeData, Institution | Child]] = []
     for entry in hass.config_entries.async_entries(DOMAIN):
         if entry.state is not ConfigEntryState.LOADED:
             continue
@@ -151,19 +153,18 @@ def _device_target(
         if runtime is None:
             continue
         for institution in runtime.institutions:
-            identifier = (
-                DOMAIN,
-                f"institution:{runtime.account_id}:{opaque_id(institution.id)}",
-            )
-            if identifier in device.identifiers:
-                return runtime, institution
+            if institution_identifier(institution.id) in device.identifiers:
+                matches.append((entry, runtime, institution))
         for child in runtime.children:
-            identifier = (
-                DOMAIN,
-                f"child:{runtime.account_id}:{opaque_id(child.id)}",
-            )
-            if identifier in device.identifiers:
-                return runtime, child
+            if child_identifier(child.id) in device.identifiers:
+                matches.append((entry, runtime, child))
+
+    if matches:
+        # Prefer the deterministic owner, then the oldest loaded account. This
+        # keeps a shared device usable through another account when the owner
+        # is unloaded or being removed.
+        entry, runtime, target = min(matches, key=lambda match: match[0].entry_id)
+        return runtime, target
 
     raise ServiceValidationError(
         translation_domain=DOMAIN, translation_key="device_not_found"
