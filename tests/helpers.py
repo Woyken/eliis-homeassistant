@@ -22,6 +22,25 @@ def get_device(hass, entry, identifier: tuple[str, str]):
     return registry.async_get_device(identifiers={identifier})
 
 
+def device_entry_id(device: Any) -> str:
+    """Return the owning config entry ID on both device registry APIs."""
+    entry_id = getattr(device, "config_entry_id", None)
+    if entry_id is not None:
+        return entry_id
+    return next(iter(device.config_entries))
+
+
+def devices_with_identifier(hass, identifier: tuple[str, str]) -> list[Any]:
+    """Return every device carrying an identifier."""
+    registry = dr.async_get(hass)
+    devices = (
+        registry.devices
+        if hasattr(registry, "async_get_device_by_identifier")
+        else registry.devices.values()
+    )
+    return [device for device in devices if identifier in device.identifiers]
+
+
 def make_entry(
     options: dict[str, Any] | None = None,
     *,

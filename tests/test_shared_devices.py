@@ -16,7 +16,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
 from .fakes import FakeEliisClient
-from .helpers import get_device, make_entry
+from .helpers import device_entry_id, devices_with_identifier, get_device, make_entry
 
 
 @pytest.fixture(autouse=True)
@@ -66,11 +66,10 @@ async def test_shared_institution_with_different_children(hass) -> None:
     )
     await _setup(hass, entry_a, entry_b)
 
-    registry = dr.async_get(hass)
     owner = _owner(entry_a, entry_b)
     institution = get_device(hass, owner, institution_identifier("1001"))
     assert institution is not None
-    assert institution.config_entries == {owner.entry_id}
+    assert device_entry_id(institution) == owner.entry_id
 
     alice = get_device(hass, entry_a, child_identifier("2002"))
     bob = get_device(hass, entry_b, child_identifier("3003"))
@@ -79,12 +78,7 @@ async def test_shared_institution_with_different_children(hass) -> None:
     assert alice.via_device_id == institution.id
     assert bob.via_device_id == institution.id
 
-    shared_institutions = [
-        device
-        for device in registry.devices.values()
-        if institution_identifier("1001") in device.identifiers
-    ]
-    assert len(shared_institutions) == 1
+    assert len(devices_with_identifier(hass, institution_identifier("1001"))) == 1
 
     assert _sensor_ids(hass, "test_kindergarten") == [
         "sensor.test_kindergarten_today_s_menu",
@@ -117,17 +111,12 @@ async def test_shared_child_has_one_device_and_one_entity_set(hass) -> None:
     )
     await _setup(hass, entry_a, entry_b)
 
-    registry = dr.async_get(hass)
-    child_devices = [
-        device
-        for device in registry.devices.values()
-        if child_identifier("2002") in device.identifiers
-    ]
+    child_devices = devices_with_identifier(hass, child_identifier("2002"))
     assert len(child_devices) == 1
     owner = _owner(entry_a, entry_b)
     child_device = get_device(hass, owner, child_identifier("2002"))
     assert child_device is not None
-    assert child_device.config_entries == {owner.entry_id}
+    assert device_entry_id(child_device) == owner.entry_id
 
     entities = [
         entity
@@ -222,8 +211,8 @@ async def test_removing_owner_hands_shared_devices_to_another_account(hass) -> N
     child = get_device(hass, other, child_identifier("2002"))
     assert institution is not None
     assert child is not None
-    assert institution.config_entries == {other.entry_id}
-    assert child.config_entries == {other.entry_id}
+    assert device_entry_id(institution) == other.entry_id
+    assert device_entry_id(child) == other.entry_id
 
     entity_ids = [
         entity.entity_id
